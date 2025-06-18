@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from TikTokApi import TikTokApi
 from datetime import datetime, timedelta
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -16,7 +17,7 @@ def compute_virality(video):
 @app.route('/videos', methods=['GET'])
 def get_videos():
     country = request.args.get('country', '').strip()
-    MIN_VIEWS = 30000  # minimum view count filter
+    MIN_VIEWS = 30000
 
     if not country:
         return jsonify({"error": "Please specify ?country="}), 400
@@ -25,7 +26,6 @@ def get_videos():
     two_days_ago = datetime.utcnow() - timedelta(days=2)
     results = []
 
-    # List of categories/keywords to filter in description
     categories = ['funny', 'fight', 'comedy', 'unbelievable', 'danger']
 
     with TikTokApi() as api:
@@ -33,14 +33,10 @@ def get_videos():
             stats = video.stats
             views = stats.play_count
             ts = datetime.fromtimestamp(video.create_time)
-            if ts < two_days_ago:
-                continue
-
-            if views < MIN_VIEWS:
+            if ts < two_days_ago or views < MIN_VIEWS:
                 continue
 
             desc = video.desc.lower()
-            # Check if any category keyword is in description
             if not any(cat in desc for cat in categories):
                 continue
 
@@ -65,5 +61,7 @@ def get_videos():
     results.sort(key=lambda x: x['virality_score'], reverse=True)
     return jsonify(results[:20])
 
+# ✅ PORT FIX for Render
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
